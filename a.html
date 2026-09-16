@@ -636,7 +636,7 @@ footer{background:#04060E;color:#5B6478;padding:56px 0 40px;font-size:.84rem;tex
       <div class="w-bar"><i id="wBar"></i></div>
 
       <div class="w-body">
-        <form id="leadForm" novalidate action="https://formspree.io/f/xojvgggb" method="POST">
+        <form id="leadForm" novalidate action="https://formspree.io/f/xdeknwpq" method="POST">
           <!-- 스팸 방지 허니팟 -->
           <input type="text" name="_gotcha" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
 
@@ -1194,7 +1194,7 @@ const CONFIG = {
   variant  : 'A',        // A/B 테스트 식별자 (B안과 분석에서 구분)
 
   // 리드 수신 엔드포인트 (Formspree / Google Apps Script / 자체 API 모두 가능)
-  endpoint : 'https://formspree.io/f/xojvgggb',
+  endpoint : 'https://formspree.io/f/xdeknwpq',
 
   // 연락 수단
   phone    : '010-4481-5821',                 // 표시용
@@ -1662,19 +1662,62 @@ const CONFIG = {
     };
 
     try {
-      const res = await fetch(CONFIG.endpoint, {
+      await postLead(payload);
+      onSuccess(payload);
+    } catch (err) {
+      btn.disabled = false; btn.classList.remove('is-loading');
+      showSubmitError();
+      track('lead_submit_failed', { reason: err?.message || 'unknown' });
+      console.error('[lead submit]', err);
+    }
+  });
+
+  /** 일시적 오류로 신청이 유실되지 않도록 한 번 재시도합니다 */
+  async function postLead(payload, attempt = 1) {
+    let res;
+    try {
+      res = await fetch(CONFIG.endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify(payload)
       });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      onSuccess(payload);
-    } catch (err) {
-      btn.disabled = false; btn.classList.remove('is-loading');
-      toast('전송에 실패했습니다. 전화로 연락 주세요: ' + CONFIG.phone);
-      console.error('[lead submit]', err);
+    } catch (e) {
+      if (attempt < 2) { await new Promise(r => setTimeout(r, 1200)); return postLead(payload, attempt + 1); }
+      throw new Error('network');
     }
-  });
+    if (res.status >= 500 && attempt < 2) {
+      await new Promise(r => setTimeout(r, 1200));
+      return postLead(payload, attempt + 1);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) {
+      throw new Error(Array.isArray(data.errors) && data.errors.length
+        ? data.errors.map(e => e.message).join(' / ') : 'HTTP ' + res.status);
+    }
+    return data;
+  }
+
+  /** 전송 실패 시 사라지지 않는 안내를 띄워 전화·카톡으로 유도합니다 */
+  function showSubmitError() {
+    let box = $('#submitError');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'submitError';
+      box.style.cssText = 'margin-top:14px;padding:14px 16px;border-radius:8px;background:rgba(220,38,38,.12);'
+        + 'border:1px solid rgba(220,38,38,.4);color:#FFC9C9;font-size:.86rem;line-height:1.7';
+      form.appendChild(box);
+    }
+    box.innerHTML = '<b style="display:block;margin-bottom:6px;color:#fff">신청서 전송에 실패했습니다</b>'
+      + '입력하신 내용은 그대로 있으니 <b style="color:#fff">다시 시도</b>해 주세요.<br>'
+      + '계속 실패하면 아래로 연락 주시면 동일하게 접수해 드립니다.'
+      + '<div style="display:flex;gap:8px;margin-top:11px;flex-wrap:wrap">'
+      +   '<a href="tel:' + CONFIG.phoneTel + '" style="padding:9px 15px;border-radius:7px;background:var(--color-gold);'
+      +     'color:var(--color-primary);font-weight:800;font-size:.86rem">전화 ' + CONFIG.phone + '</a>'
+      +   '<a href="' + CONFIG.kakao + '" target="_blank" rel="noopener noreferrer" style="padding:9px 15px;border-radius:7px;'
+      +     'background:#FEE500;color:#191600;font-weight:800;font-size:.86rem">카카오톡 상담</a>'
+      + '</div>';
+    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 
   function onSuccess(p) {
     track('generate_lead', { value: estimate.high, currency: 'KRW', purpose: A.purpose, source: p.유입매체 });

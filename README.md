@@ -110,7 +110,7 @@ npx serve -l 5177 .
 `index.html` 과 `a.html` 상단의 `CONFIG` 블록:
 
 ```js
-endpoint : 'https://formspree.io/f/xojvgggb'   // 리드 수신 엔드포인트
+endpoint : 'https://formspree.io/f/xdeknwpq'   // 리드 수신 엔드포인트
 phone    : '010-4481-5821'                     // 표시용 전화번호
 phoneTel : '01044815821'                       // tel: 링크용 (숫자만)
 kakao    : 'https://pf.kakao.com/_bYUrX/chat'

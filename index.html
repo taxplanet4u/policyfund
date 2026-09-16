@@ -1060,7 +1060,7 @@ footer{background:#0A1728;color:#6C7C92;padding:44px 0 34px;font-size:.83rem}
 ═══════════════════════════════════════════════════════════════ */
 const CONFIG = {
   variant  : 'B',                                  // A/B 테스트 식별자 (분석에서 A안과 구분)
-  endpoint : 'https://formspree.io/f/xojvgggb',
+  endpoint : 'https://formspree.io/f/xdeknwpq',
   phone    : '010-4481-5821',
   phoneTel : '01044815821',
   kakao    : 'https://pf.kakao.com/_bYUrX/chat',
@@ -2064,12 +2064,7 @@ const FIELDS     = [
     };
 
     try{
-      const res = await fetch(CONFIG.endpoint,{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Accept':'application/json'},
-        body:JSON.stringify(payload)
-      });
-      if(!res.ok) throw new Error('HTTP '+res.status);
+      await postLead(payload);
 
       track('generate_lead',{ value:1, currency:'KRW', interest:payload.관심사업, source:payload.유입매체 });
       try{ localStorage.setItem('bv_b_submitted','1'); }catch(er){}
@@ -2080,10 +2075,65 @@ const FIELDS     = [
       $('#apply').scrollIntoView({behavior:'smooth',block:'center'});
     }catch(err){
       btn.disabled=false; btn.classList.remove('is-load');
-      toast('전송에 실패했습니다. 전화로 연락 주세요: '+CONFIG.phone);
+      showSubmitError(err);
+      track('lead_submit_failed',{ reason: err?.message || 'unknown' });
       console.error('[lead submit]',err);
     }
   });
+
+  /**
+   * 리드 전송. 일시적 오류로 신청이 유실되지 않도록 한 번 재시도합니다.
+   * Formspree 는 성공 시 200 + {"ok":true}, 검증 실패 시 4xx + {errors:[...]} 를 반환합니다.
+   */
+  async function postLead(payload, attempt = 1){
+    let res;
+    try{
+      res = await fetch(CONFIG.endpoint,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Accept':'application/json'},
+        body:JSON.stringify(payload)
+      });
+    }catch(e){
+      // 네트워크 단절 — 한 번만 재시도
+      if(attempt < 2){ await new Promise(r=>setTimeout(r,1200)); return postLead(payload, attempt+1); }
+      throw new Error('network');
+    }
+    // 서버 측 일시 오류(5xx)도 한 번 재시도
+    if(res.status >= 500 && attempt < 2){
+      await new Promise(r=>setTimeout(r,1200));
+      return postLead(payload, attempt+1);
+    }
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok || data.ok === false){
+      const msg = Array.isArray(data.errors) && data.errors.length
+        ? data.errors.map(e=>e.message).join(' / ')
+        : 'HTTP ' + res.status;
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  /** 전송 실패 시 리드를 놓치지 않도록, 사라지지 않는 안내를 폼 안에 띄웁니다 */
+  function showSubmitError(err){
+    let box = $('#submitError');
+    if(!box){
+      box = document.createElement('div');
+      box.id = 'submitError';
+      box.style.cssText = 'margin-top:14px;padding:14px 16px;border-radius:8px;background:var(--red-50);'
+        + 'border:1px solid #F7C6C2;color:#8A2018;font-size:.87rem;line-height:1.7';
+      form.appendChild(box);
+    }
+    box.innerHTML = '<b style="display:block;margin-bottom:6px">신청서 전송에 실패했습니다</b>'
+      + '입력하신 내용은 저장되어 있으니 <b>다시 시도</b> 버튼을 눌러 주세요.<br>'
+      + '계속 실패하면 아래로 바로 연락 주시면 동일하게 접수해 드립니다.'
+      + '<div style="display:flex;gap:8px;margin-top:11px;flex-wrap:wrap">'
+      +   '<a href="tel:'+esc(CONFIG.phoneTel)+'" style="display:inline-flex;align-items:center;gap:6px;padding:9px 15px;'
+      +     'border-radius:7px;background:var(--b-900);color:#fff;font-weight:700;font-size:.86rem">전화 '+esc(CONFIG.phone)+'</a>'
+      +   '<a href="'+esc(CONFIG.kakao)+'" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;'
+      +     'gap:6px;padding:9px 15px;border-radius:7px;background:#FEE500;color:#191600;font-weight:700;font-size:.86rem">카카오톡 상담</a>'
+      + '</div>';
+    box.scrollIntoView({behavior:'smooth',block:'center'});
+  }
 
   /* 재방문 안내 */
   try{ if(localStorage.getItem('bv_b_submitted')==='1')
