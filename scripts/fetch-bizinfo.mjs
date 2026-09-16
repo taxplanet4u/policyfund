@@ -344,7 +344,7 @@ function normalize(raw, idx) {
     deadline : period.type,                      // fixed | rolling | unknown
     period   : period.raw,
     endDate  : ymd(period.end),
-    desc     : cut(summary, 180) || '자세한 내용은 공고 원문을 확인해 주세요.',
+    desc     : cut(summary, 180) || '자세한 내용은 상담 시 안내해 드립니다.',
     url      : absUrl(pick(raw, 'pblancUrl', 'link')),
     target,
     applyHow : cut(pick(raw, 'reqstMthPapersCn'), 120),   // 신청 방법·제출 서류

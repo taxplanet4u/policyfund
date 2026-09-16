@@ -202,8 +202,6 @@ header.on{box-shadow:var(--sh-2)}
 .pbtn-p:hover{background:var(--b-900);transform:translateY(-1px);box-shadow:0 6px 14px rgba(11,77,162,.26)}
 .pbtn-s{background:#fff;border:1.5px solid var(--line);color:var(--ink-2)}
 .pbtn-s:hover{border-color:var(--b-600);color:var(--b-800);background:var(--b-25)}
-.pbtn-l{background:transparent;border:1.5px dashed var(--line);color:var(--muted);font-weight:700}
-.pbtn-l:hover{border-color:var(--b-600);color:var(--b-800);background:var(--b-25)}
 
 .empty{text-align:center;padding:56px 20px;color:var(--muted)}
 .empty .ico{font-size:2.4rem;color:var(--line);margin-bottom:12px;display:inline-block}
@@ -859,7 +857,7 @@ footer{background:#0A1728;color:#6C7C92;padding:44px 0 34px;font-size:.83rem}
       <div class="qa"><button class="qa-q" aria-expanded="false"><span class="m">Q</span>그러면 정확히 어디까지 해 주시나요?<svg class="ico" aria-hidden="true"><use href="#s-down"/></svg></button>
         <div class="qa-a"><div>지원사업 정보 제공과 조건별 매칭, <strong>자격요건 대조와 적합도 분석</strong>, 보유하신 재무 자료를 바탕으로 한 지표 산출과 기준 대비 차이 정리, 사업계획서 구성 코칭, 벤처·이노비즈·기업부설연구소 등 <strong>인증 취득 컨설팅</strong>까지 수행합니다. 자세한 범위는 <strong>업무 범위</strong> 항목에 수행 업무와 수행하지 않는 업무를 나누어 표기해 두었습니다.</div></div></div>
       <div class="qa"><button class="qa-q" aria-expanded="false"><span class="m">Q</span>여기 나오는 공고는 실제 모집 중인 건가요?<svg class="ico" aria-hidden="true"><use href="#s-down"/></svg></button>
-        <div class="qa-a"><div>네. 중소벤처기업부가 운영하는 <strong>기업마당(bizinfo.go.kr)의 공공데이터 오픈API</strong>에서 공고 정보를 받아 하루 한 번 갱신합니다. 각 공고의 <strong>공고 원문 보기</strong> 버튼을 누르시면 기업마당의 원문 페이지로 바로 이동하므로 직접 확인하실 수 있습니다. 다만 갱신 시점과 기관의 공고 정정 사이에 시차가 있을 수 있으니, <strong>신청 자격과 마감일은 반드시 공고 원문을 기준으로</strong> 확인해 주세요.</div></div></div>
+        <div class="qa-a"><div>네. 중소벤처기업부가 운영하는 <strong>기업마당(bizinfo.go.kr)의 공공데이터 오픈API</strong>에서 공고 정보를 받아 하루 한 번 갱신합니다. 다만 갱신 시점과 기관의 공고 정정 사이에 시차가 있을 수 있으므로, <strong>신청 자격과 마감일은 반드시 소관 기관의 공식 공고를 기준으로</strong> 확인해 주세요. 상담을 신청하시면 조건에 맞는 사업의 모집 현황과 자격 요건을 정리해 안내드립니다.</div></div></div>
       <div class="qa"><button class="qa-q" aria-expanded="false"><span class="m">Q</span>서류를 대신 써 주시나요?<svg class="ico" aria-hidden="true"><use href="#s-down"/></svg></button>
         <div class="qa-a"><div>대리 작성은 하지 않습니다. 정책자금 신청 서류의 대리 작성과 제3자 부당개입은 관계 법령상 제한됩니다. 저희는 사업계획서의 <strong>구조와 논리, 자금 소요 산출 근거를 검토하고 자문</strong>하며, 작성과 제출은 대표자 본인이 하십니다.</div></div></div>
       <div class="qa"><button class="qa-q" aria-expanded="false"><span class="m">Q</span>비용은 언제 발생하나요?<svg class="ico" aria-hidden="true"><use href="#s-down"/></svg></button>
@@ -1488,7 +1486,7 @@ const FIELDS     = [
         deadline  : per.type,
         period    : per.raw,
         endDate   : RAW.ymd(per.end),
-        desc      : RAW.cut(summary, 180) || '자세한 내용은 공고 원문을 확인해 주세요.',
+        desc      : RAW.cut(summary, 180) || '자세한 내용은 상담 시 안내해 드립니다.',
         url       : RAW.abs(RAW.pick(r,'pblancUrl')),
         target,
         applyHow  : RAW.cut(RAW.pick(r,'reqstMthPapersCn'), 120),
@@ -1739,7 +1737,6 @@ const FIELDS     = [
       +   '<div class="pact">'
       +     '<button class="pbtn pbtn-p" data-apply="'+esc(p.id)+'">자격요건 확인</button>'
       +     '<button class="pbtn pbtn-s" data-detail="'+esc(p.id)+'">상세 보기</button>'
-      +     (p.url ? '<a class="pbtn pbtn-l" href="'+esc(p.url)+'" target="_blank" rel="noopener noreferrer" data-cta="origin-link">공고 원문 ↗</a>' : '')
       +   '</div>'
       + '</article>';
     }).join('');
@@ -1819,12 +1816,8 @@ const FIELDS     = [
       +   (p.contact  ? row('문의처', esc(p.contact)) : '')
       + '</table>'
       + '<div style="background:var(--b-50);border:1px solid var(--b-100);border-radius:8px;padding:13px 15px;margin-bottom:16px;font-size:.84rem;color:var(--ink-2);line-height:1.7">'
-      +   '지원 한도·금리·상환조건 등 상세 요건은 <b>공고 원문</b>에 명시되어 있습니다. '
+      +   '지원 한도·금리·상환조건 등 상세 요건은 소관 기관 공고에 명시되어 있습니다. '
       +   '신청 자격과 기간은 반드시 소관 기관 공식 공고를 기준으로 확인해 주세요.</div>'
-      + (p.url
-          ? '<a class="pbtn pbtn-s" style="width:100%;padding:13px;margin-bottom:8px" href="'+esc(p.url)+'" target="_blank" rel="noopener noreferrer" data-cta="modal-origin">'
-            + '기업마당 공고 원문 보기 ↗</a>'
-          : '')
       + '<button class="pbtn pbtn-p" style="width:100%;padding:14px" data-apply-modal="'+esc(p.id)+'">'
       +   '이 사업 자격요건 대조 신청하기</button>'
       + '<p style="font-size:.74rem;color:var(--faint);text-align:center;margin-top:10px;line-height:1.6">'
