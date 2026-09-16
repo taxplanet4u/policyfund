@@ -1,0 +1,12 @@
+# 줄바꿈 정규화 — 저장소에는 LF 로 저장합니다.
+* text=auto eol=lf
+
+# 셸이 실행하는 파일은 반드시 LF (CRLF 면 GitHub Actions 에서 깨집니다)
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.sh    text eol=lf
+*.mjs   text eol=lf
+*.js    text eol=lf
+
+# 데이터는 diff 를 만들지 않도록 처리
+data/*.json -diff

@@ -1,0 +1,110 @@
+name: 지원사업 공고 갱신
+
+# ─────────────────────────────────────────────────────────────
+# 기업마당 API에서 공고를 받아 data/*.json 을 갱신하고 커밋합니다.
+#
+# 사전 준비 (한 번만)
+#   저장소 → Settings → Secrets and variables → Actions
+#     → New repository secret
+#        Name  : BIZINFO_KEY
+#        Secret: 기업마당에서 발급받은 인증키
+#
+#   저장소 → Settings → Actions → General → Workflow permissions
+#     → "Read and write permissions" 선택 (커밋을 푸시하려면 필요)
+# ─────────────────────────────────────────────────────────────
+
+on:
+  schedule:
+    # UTC 21:00 = KST 06:00 (다음날). 매일 아침 갱신됩니다.
+    - cron: '0 21 * * *'
+  workflow_dispatch:          # Actions 탭에서 수동 실행 가능
+    inputs:
+      split:
+        description: '첫 로드에 담을 마감임박 건수'
+        required: false
+        default: '100'
+
+permissions:
+  contents: write             # data/*.json 커밋·푸시
+
+concurrency:
+  group: update-bizinfo
+  cancel-in-progress: false   # 갱신 중복 실행 방지
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Node 설치
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 공고 수집
+        env:
+          BIZINFO_KEY: ${{ secrets.BIZINFO_KEY }}
+        run: |
+          if [ -z "$BIZINFO_KEY" ]; then
+            echo "::error::BIZINFO_KEY 시크릿이 설정되지 않았습니다. Settings → Secrets and variables → Actions 에서 추가하세요."
+            exit 1
+          fi
+          node scripts/fetch-bizinfo.mjs --split "${{ github.event.inputs.split || '100' }}"
+
+      - name: 결과 검증
+        run: |
+          # 수집이 실패했거나 비정상적으로 적으면 커밋하지 않고 중단합니다.
+          # (정부 API가 빈 응답을 줬을 때 멀쩡한 데이터를 덮어쓰는 사고 방지)
+          for f in data/programs-initial.json data/programs-full.json; do
+            [ -f "$f" ] || { echo "::error::$f 가 생성되지 않았습니다"; exit 1; }
+          done
+
+          # JSON 파싱 실패 시 0 으로 떨어뜨려 아래 숫자 비교가 무너지지 않게 합니다
+          COUNT=$(node -e "
+            try {
+              const d = require('./data/programs-full.json');
+              const n = Array.isArray(d.programs) ? d.programs.length : 0;
+              const ok = n > 0 && d.programs.every(p => p && p.id && p.title && p.url);
+              console.log(ok ? n : 0);
+            } catch (e) { console.log(0); }
+          " 2>/dev/null || echo 0)
+
+          case "$COUNT" in
+            ''|*[!0-9]*) COUNT=0 ;;
+          esac
+
+          echo "수집 건수: $COUNT"
+          if [ "$COUNT" -lt 100 ]; then
+            echo "::error::수집 결과가 비정상입니다(유효 $COUNT 건). 기존 데이터를 유지하고 중단합니다."
+            git checkout -- data/ 2>/dev/null || true
+            exit 1
+          fi
+          echo "COUNT=$COUNT" >> "$GITHUB_ENV"
+
+      - name: 변경사항 커밋
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/programs-initial.json data/programs-full.json
+
+          if git diff --staged --quiet; then
+            echo "::notice::변경된 공고가 없습니다. 커밋을 건너뜁니다."
+            exit 0
+          fi
+
+          git commit -m "chore(data): 지원사업 공고 갱신 (${COUNT}건)"
+          git push
+
+      - name: 요약
+        if: always()
+        run: |
+          {
+            echo "### 지원사업 공고 갱신 결과"
+            echo ""
+            echo "- 수집 건수: **${COUNT:-실패}**"
+            echo "- 실행 시각(KST): $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M')"
+          } >> "$GITHUB_STEP_SUMMARY"
