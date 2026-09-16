@@ -175,10 +175,28 @@ function parsePeriod(raw) {
 
 /** trgetNm 은 업종이 아니라 '기업 유형'입니다 (중소기업 1177 / 소상공인 213 / 창업벤처 91 …) */
 const TARGET_TYPES = ['중소기업', '소상공인', '창업벤처', '사회적기업', '여성기업', '장애인기업', '협동조합', '마을기업'];
-function normTargetType(s) {
-  const t = clean(s);
-  const hit = TARGET_TYPES.filter(x => t.includes(x));
-  return hit.length ? hit : (t ? [t] : ['기타']);
+
+/**
+ * 기업 유형 추출.
+ * trgetNm 이 "중소기업" 하나로만 등록돼 있어도 제목에 대상이 명시된 공고가 많습니다.
+ *   예) trgetNm="중소기업" / 제목="[대전] 서구 2026년 소상공인 경영안정자금 지원사업 공고"
+ * 그래서 제목까지 함께 봅니다. 본문(bsnsSumryCn)은 보지 않습니다 —
+ * 실측 결과 본문 매칭은 46건 중 대부분이 오탐이었습니다
+ * (중소기업 대상 공모전·기획전 설명에 소상공인이 스쳐 언급되는 경우).
+ */
+function normTargetType(trgetNm, title) {
+  const src   = clean(trgetNm);
+  const head  = clean(title);
+  const found = new Set();
+
+  TARGET_TYPES.forEach(x => { if (src.includes(x)) found.add(x); });
+  // 제목에 명시된 경우만 보강 (신뢰도 높은 매칭)
+  TARGET_TYPES.forEach(x => { if (head.includes(x)) found.add(x); });
+  // 소공인은 소상공인의 한 갈래(제조업 소상공인)입니다
+  if (/소공인/.test(src + head)) found.add('소상공인');
+
+  if (found.size) return TARGET_TYPES.filter(t => found.has(t));
+  return src ? [src] : ['기타'];
 }
 
 /** 날짜 차이를 '일' 단위로 — 시각/시간대 영향을 받지 않도록 자정 기준으로 계산 */
@@ -319,7 +337,7 @@ function normalize(raw, idx) {
     org      : clean(pick(raw, 'excInsttNm', 'jrsdInsttNm', 'author')) || '기관 미상',
     ministry : clean(pick(raw, 'jrsdInsttNm')),
     region   : extractRegions(tags, target, title),
-    targetType: normTargetType(target),          // 중소기업 / 소상공인 / 창업벤처 …  ← API 실제 값
+    targetType: normTargetType(target, title),   // 중소기업 / 소상공인 / 창업벤처 …  (trgetNm + 제목)
     industry : ind.length >= 8 ? null : ind,     // null = 단서 없음(전 업종). 키워드 추정이라 오탐 가능
     years    : yrs.length >= 5 ? null : yrs,     // null = 단서 없음. 추정률 10% 미만 — 하드 필터 금지
     dday     : dd,                               // fixed 일 때만 숫자, 그 외 null

@@ -111,8 +111,8 @@ npx serve -l 5177 .
 
 ```js
 endpoint : 'https://formspree.io/f/xojvgggb'   // 리드 수신 엔드포인트
-phone    : '02-0000-0000'                      // 표시용 전화번호
-phoneTel : '0200000000'                        // tel: 링크용 (숫자만)
+phone    : '010-4481-5821'                     // 표시용 전화번호
+phoneTel : '01044815821'                       // tel: 링크용 (숫자만)
 kakao    : 'https://pf.kakao.com/_xxxxxxx/chat'
 ga4      : ''                                  // GA4 측정 ID
 metaPixel: ''                                  // Meta 픽셀 ID
